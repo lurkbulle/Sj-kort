@@ -80,9 +80,6 @@
   /* seamark toggle indicator */
   .leaflet-control-attribution{font-size:9px!important;background:rgba(255,255,255,.7)!important;}
   .leaflet-control-zoom{display:none;}
-  /* smooth the upscaled depth layer instead of hard pixels */
-  .depth-tiles{image-rendering:auto;}
-  .depth-tiles img{image-rendering:auto;}
 
   /* boat marker */
   .boat-ico{filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));}
@@ -116,25 +113,6 @@
   .wind-spd small{font-size:11px;font-weight:400;opacity:.6;margin-left:3px;}
   .wind-dir{font-size:11px;letter-spacing:1.5px;color:var(--brass);
     text-transform:uppercase;font-weight:600;margin-top:4px;}
-
-  /* depth legend */
-  .legend{
-    position:absolute;right:12px;z-index:1000;
-    bottom:calc(env(safe-area-inset-bottom) + 92px);
-    display:none;flex-direction:column;gap:5px;
-    background:var(--panel);backdrop-filter:blur(14px);
-    -webkit-backdrop-filter:blur(14px);
-    border:1px solid rgba(200,160,74,.35);border-radius:12px;
-    padding:9px 11px;color:var(--foam);width:118px;
-    box-shadow:0 8px 28px rgba(0,0,0,.4);
-  }
-  .legend.show{display:flex;}
-  .legend-title{font-size:9px;letter-spacing:1.5px;color:var(--brass);
-    text-transform:uppercase;font-weight:600;}
-  .legend-bar{height:9px;border-radius:5px;
-    background:linear-gradient(90deg,#cfe7f2 0%,#8fc4dd 30%,#4e96c4 60%,#2766a0 82%,#13386e 100%);}
-  .legend-labels{display:flex;justify-content:space-between;
-    font:500 9px/1 "SF Mono",ui-monospace,monospace;opacity:.75;}
 </style>
 </head>
 <body>
@@ -159,13 +137,6 @@
   <button class="btn on" id="seamarkBtn" title="Sjömärken">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
       <path d="M12 3v18M12 3l5 3-5 3M7 21h10"/>
-    </svg>
-  </button>
-  <button class="btn" id="depthBtn" title="Vattendjup">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M3 7c2 0 2 1.5 4.5 1.5S10 7 12 7s2 1.5 4.5 1.5S19 7 21 7"/>
-      <path d="M3 12c2 0 2 1.5 4.5 1.5S10 12 12 12s2 1.5 4.5 1.5S19 12 21 12"/>
-      <path d="M3 17c2 0 2 1.5 4.5 1.5S10 17 12 17s2 1.5 4.5 1.5S19 17 21 17"/>
     </svg>
   </button>
   <button class="btn" id="windBtn" title="Vind">
@@ -212,12 +183,6 @@
   </div>
 </div>
 
-<div class="legend" id="legend">
-  <div class="legend-title">Djup (m)</div>
-  <div class="legend-bar"></div>
-  <div class="legend-labels"><span>0</span><span>50</span><span>200+</span></div>
-</div>
-
 <div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -236,19 +201,7 @@ base.setZIndex(100);
 const seamark = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
   maxZoom:18, opacity:1, attribution:'&copy; OpenSeaMap'
 }).addTo(map);
-
-// depth overlay: EMODnet bathymetry "baselayer" (atlas-style depth shading).
-// This is the only depth layer published in web_mercator, so it works with Leaflet
-// without gaps. Coarse — overview only, never for close navigation.
-const depth = L.tileLayer('https://tiles.emodnet-bathymetry.eu/2020/baselayer/web_mercator/{z}/{x}/{y}.png', {
-  maxNativeZoom:12, maxZoom:19, opacity:0.6, className:'depth-tiles',
-  attribution:'Djup &copy; EMODnet Bathymetry'
-});
-depth.setZIndex(200); // above OSM base, below seamarks
 seamark.setZIndex(400);
-let depthErrShown=false;
-depth.on('tileerror',()=>{ if(!depthErrShown){depthErrShown=true;
-  console.error('EMODnet djup-tile gav fel'); toast('Djup: kunde inte ladda lagret');} });
 
 // --- boat marker ---
 let boatMarker=null, accCircle=null, heading=0, followMode=true, lastPos=null;
@@ -300,14 +253,6 @@ if('geolocation' in navigator){
 const sb=document.getElementById('seamarkBtn');
 sb.onclick=()=>{ if(map.hasLayer(seamark)){map.removeLayer(seamark);sb.classList.remove('on');}
   else{map.addLayer(seamark);sb.classList.add('on');} };
-
-const db=document.getElementById('depthBtn');
-const legend=document.getElementById('legend');
-let depthWarned=false;
-db.onclick=()=>{
-  if(map.hasLayer(depth)){map.removeLayer(depth);db.classList.remove('on');legend.classList.remove('show');}
-  else{map.addLayer(depth);db.classList.add('on');legend.classList.add('show');
-    if(!depthWarned){depthWarned=true;toast('Grov djupöversikt – ej för navigation');}} };
 
 // --- wind ---
 const wb=document.getElementById('windBtn');
