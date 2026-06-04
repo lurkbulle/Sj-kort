@@ -227,6 +227,7 @@ const map = L.map('map', {zoomControl:false, attributionControl:true}).setView(S
 const base = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom:19, attribution:'&copy; OpenStreetMap'
 }).addTo(map);
+base.setZIndex(100);
 
 // nautical overlay: OpenSeaMap seamarks (transparent)
 const seamark = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
@@ -237,9 +238,9 @@ const seamark = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.pn
 // This is the only depth layer published in web_mercator, so it works with Leaflet
 // without gaps. Coarse — overview only, never for close navigation.
 const depth = L.tileLayer('https://tiles.emodnet-bathymetry.eu/2020/baselayer/web_mercator/{z}/{x}/{y}.png', {
-  maxZoom:12, opacity:0.65, attribution:'Djup &copy; EMODnet Bathymetry'
+  maxZoom:12, opacity:0.7, attribution:'Djup &copy; EMODnet Bathymetry'
 });
-depth.setZIndex(150); // under seamarks
+depth.setZIndex(200); // above OSM base, below seamarks
 seamark.setZIndex(400);
 let depthErrShown=false;
 depth.on('tileerror',()=>{ if(!depthErrShown){depthErrShown=true;
@@ -299,10 +300,10 @@ sb.onclick=()=>{ if(map.hasLayer(seamark)){map.removeLayer(seamark);sb.classList
 const db=document.getElementById('depthBtn');
 const legend=document.getElementById('legend');
 let depthWarned=false;
-db.onclick=()=>{ console.log('Djupknapp klickad. Lager aktivt:',map.hasLayer(depth));
+db.onclick=()=>{
   if(map.hasLayer(depth)){map.removeLayer(depth);db.classList.remove('on');legend.classList.remove('show');}
   else{map.addLayer(depth);db.classList.add('on');legend.classList.add('show');
-    toast(depthWarned?'Djup på':'Grov djupöversikt – ej för navigation');depthWarned=true;} };
+    if(!depthWarned){depthWarned=true;toast('Grov djupöversikt – ej för navigation');}} };
 
 // --- wind ---
 const wb=document.getElementById('windBtn');
