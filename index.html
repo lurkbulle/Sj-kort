@@ -80,6 +80,9 @@
   /* seamark toggle indicator */
   .leaflet-control-attribution{font-size:9px!important;background:rgba(255,255,255,.7)!important;}
   .leaflet-control-zoom{display:none;}
+  /* smooth the upscaled depth layer instead of hard pixels */
+  .depth-tiles{image-rendering:auto;}
+  .depth-tiles img{image-rendering:auto;}
 
   /* boat marker */
   .boat-ico{filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));}
@@ -238,7 +241,8 @@ const seamark = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.pn
 // This is the only depth layer published in web_mercator, so it works with Leaflet
 // without gaps. Coarse — overview only, never for close navigation.
 const depth = L.tileLayer('https://tiles.emodnet-bathymetry.eu/2020/baselayer/web_mercator/{z}/{x}/{y}.png', {
-  maxNativeZoom:12, maxZoom:19, opacity:0.7, attribution:'Djup &copy; EMODnet Bathymetry'
+  maxNativeZoom:12, maxZoom:19, opacity:0.6, className:'depth-tiles',
+  attribution:'Djup &copy; EMODnet Bathymetry'
 });
 depth.setZIndex(200); // above OSM base, below seamarks
 seamark.setZIndex(400);
@@ -303,7 +307,7 @@ let depthWarned=false;
 db.onclick=()=>{
   if(map.hasLayer(depth)){map.removeLayer(depth);db.classList.remove('on');legend.classList.remove('show');}
   else{map.addLayer(depth);db.classList.add('on');legend.classList.add('show');
-    toast('Djup på (zoom '+map.getZoom()+')');} };
+    if(!depthWarned){depthWarned=true;toast('Grov djupöversikt – ej för navigation');}} };
 
 // --- wind ---
 const wb=document.getElementById('windBtn');
