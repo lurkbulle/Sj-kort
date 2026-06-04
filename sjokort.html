@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a2540">
+<title>Sjökort</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+  :root{
+    --deep:#0a2540; --hull:#13334f; --brass:#c8a04a; --brass-dim:#8a6d2f;
+    --foam:#eaf2f6; --rope:#d8c8a8; --signal:#e8533a; --depth:#5a8aa8;
+    --panel:rgba(10,37,64,.82);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;overflow:hidden;font-family:-apple-system,"SF Pro Text",system-ui,sans-serif;}
+  #map{position:absolute;inset:0;background:#a9c4d4;}
+
+  /* top bar */
+  .topbar{
+    position:absolute;top:0;left:0;right:0;z-index:1000;
+    padding:calc(env(safe-area-inset-top) + 10px) 16px 12px;
+    display:flex;align-items:center;justify-content:space-between;
+    background:linear-gradient(180deg,var(--deep) 0%,rgba(10,37,64,.9) 60%,transparent 100%);
+    color:var(--foam);pointer-events:none;
+  }
+  .brand{display:flex;align-items:center;gap:10px;pointer-events:auto;}
+  .brand svg{width:26px;height:26px;flex:none;}
+  .brand h1{
+    font:600 18px/1 "SF Pro Display",-apple-system,sans-serif;
+    letter-spacing:.5px;
+  }
+  .brand .sub{display:block;font-size:10px;letter-spacing:2.5px;
+    color:var(--brass);font-weight:600;margin-top:3px;text-transform:uppercase;}
+
+  /* readout pills */
+  .readouts{
+    position:absolute;left:12px;right:12px;
+    bottom:calc(env(safe-area-inset-bottom) + 16px);
+    z-index:1000;display:flex;gap:8px;pointer-events:none;
+  }
+  .pill{
+    flex:1;background:var(--panel);backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(200,160,74,.35);border-radius:14px;
+    padding:9px 12px;color:var(--foam);
+    box-shadow:0 8px 28px rgba(0,0,0,.4);
+  }
+  .pill .lab{font-size:9px;letter-spacing:1.8px;color:var(--brass);
+    text-transform:uppercase;font-weight:600;}
+  .pill .val{font:600 19px/1.1 "SF Mono",ui-monospace,monospace;
+    margin-top:4px;font-variant-numeric:tabular-nums;}
+  .pill .val small{font-size:11px;font-weight:400;opacity:.6;margin-left:2px;}
+
+  /* controls */
+  .ctrls{
+    position:absolute;right:12px;z-index:1000;
+    top:calc(env(safe-area-inset-top) + 76px);
+    display:flex;flex-direction:column;gap:8px;
+  }
+  .btn{
+    width:46px;height:46px;border:none;border-radius:13px;
+    background:var(--panel);backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(200,160,74,.35);
+    color:var(--foam);font-size:20px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 6px 20px rgba(0,0,0,.35);transition:transform .12s,background .2s;
+  }
+  .btn:active{transform:scale(.92);}
+  .btn.on{background:var(--brass);color:var(--deep);border-color:var(--brass);}
+  .btn svg{width:22px;height:22px;}
+
+  /* seamark toggle indicator */
+  .leaflet-control-attribution{font-size:9px!important;background:rgba(255,255,255,.7)!important;}
+  .leaflet-control-zoom{display:none;}
+
+  /* boat marker */
+  .boat-ico{filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));}
+
+  /* status flash */
+  .toast{
+    position:absolute;left:50%;top:calc(env(safe-area-inset-top) + 80px);
+    transform:translateX(-50%);z-index:1100;
+    background:var(--signal);color:#fff;padding:8px 16px;border-radius:20px;
+    font-size:13px;font-weight:500;box-shadow:0 6px 20px rgba(0,0,0,.4);
+    opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;
+  }
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#c8a04a" stroke-width="1.6">
+      <circle cx="12" cy="12" r="9.5"/>
+      <path d="M12 2.5V5M12 19v2.5M2.5 12H5M19 12h2.5" stroke-width="1.2"/>
+      <path d="M12 6.5l2.2 5.5L12 17.5 9.8 12z" fill="#c8a04a" stroke="none"/>
+      <path d="M12 17.5L9.8 12 12 6.5" fill="#e8533a" stroke="none"/>
+    </svg>
+    <div>
+      <h1>Sjökort</h1>
+      <span class="sub">Skärgård · Navigation</span>
+    </div>
+  </div>
+</div>
+
+<div class="ctrls">
+  <button class="btn on" id="seamarkBtn" title="Sjömärken">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+      <path d="M12 3v18M12 3l5 3-5 3M7 21h10"/>
+    </svg>
+  </button>
+  <button class="btn" id="northBtn" title="Norr upp">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round">
+      <path d="M12 2l4 9-4-2-4 2z" fill="currentColor"/>
+      <path d="M8 13l4 9 4-9"/>
+    </svg>
+  </button>
+  <button class="btn" id="locBtn" title="Min position">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke-linecap="round"/>
+    </svg>
+  </button>
+</div>
+
+<div class="readouts">
+  <div class="pill"><div class="lab">Fart</div><div class="val" id="spd">–<small>kn</small></div></div>
+  <div class="pill"><div class="lab">Kurs</div><div class="val" id="hdg">–<small>°</small></div></div>
+  <div class="pill"><div class="lab">Position</div><div class="val" id="pos" style="font-size:13px">–</div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+function bootSjokort(){
+const STHLM = [59.32, 18.07];
+const map = L.map('map', {zoomControl:false, attributionControl:true}).setView(STHLM, 11);
+
+// base: OpenStreetMap (clean, good coastline)
+const base = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom:19, attribution:'&copy; OpenStreetMap'
+}).addTo(map);
+
+// nautical overlay: OpenSeaMap seamarks (transparent)
+const seamark = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
+  maxZoom:18, opacity:1, attribution:'&copy; OpenSeaMap'
+}).addTo(map);
+
+// --- boat marker ---
+let boatMarker=null, accCircle=null, heading=0, followMode=true;
+function boatIcon(deg){
+  return L.divIcon({
+    className:'boat-ico', iconSize:[34,34], iconAnchor:[17,17],
+    html:`<svg width="34" height="34" viewBox="0 0 34 34" style="transform:rotate(${deg}deg)">
+      <circle cx="17" cy="17" r="15" fill="rgba(232,83,58,.18)"/>
+      <path d="M17 4 L24 27 L17 22 L10 27 Z" fill="#e8533a" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>
+    </svg>`
+  });
+}
+
+const toast=(m)=>{const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2600);};
+
+function onPos(p){
+  const {latitude:lat,longitude:lng,accuracy:acc,speed,heading:hd}=p.coords;
+  const ll=[lat,lng];
+  if(hd!=null && !isNaN(hd)) heading=hd;
+  if(!boatMarker){
+    boatMarker=L.marker(ll,{icon:boatIcon(heading),zIndexOffset:1000}).addTo(map);
+    accCircle=L.circle(ll,{radius:acc,color:'#e8533a',weight:1,opacity:.4,fillOpacity:.06}).addTo(map);
+    map.setView(ll,14);
+  } else {
+    boatMarker.setLatLng(ll).setIcon(boatIcon(heading));
+    accCircle.setLatLng(ll).setRadius(acc);
+    if(followMode) map.panTo(ll,{animate:true,duration:.5});
+  }
+  // readouts
+  const kn = (speed!=null && !isNaN(speed)) ? (speed*1.94384).toFixed(1) : '–';
+  document.getElementById('spd').innerHTML = kn+'<small>kn</small>';
+  document.getElementById('hdg').innerHTML = (hd!=null&&!isNaN(hd)?Math.round(hd):'–')+'<small>°</small>';
+  document.getElementById('pos').textContent = fmt(lat,'N','S')+'  '+fmt(lng,'E','W');
+}
+function fmt(v,pos,neg){
+  const h=v>=0?pos:neg; v=Math.abs(v);
+  const d=Math.floor(v), m=((v-d)*60).toFixed(2);
+  return `${d}°${m}'${h}`;
+}
+function onErr(e){ toast(e.code===1?'Plats nekad – tillåt i inställningar':'Hittar ingen position'); }
+
+if('geolocation' in navigator){
+  navigator.geolocation.watchPosition(onPos,onErr,{enableHighAccuracy:true,maximumAge:1000,timeout:12000});
+} else { toast('Geolocation stöds inte'); }
+
+// --- controls ---
+const sb=document.getElementById('seamarkBtn');
+sb.onclick=()=>{ if(map.hasLayer(seamark)){map.removeLayer(seamark);sb.classList.remove('on');}
+  else{map.addLayer(seamark);sb.classList.add('on');} };
+
+document.getElementById('locBtn').onclick=()=>{
+  followMode=true;
+  if(boatMarker) map.setView(boatMarker.getLatLng(),Math.max(map.getZoom(),14),{animate:true});
+  else toast('Väntar på position…');
+};
+document.getElementById('northBtn').onclick=()=>map.setBearing&&map.setBearing(0);
+
+// stop following when user drags
+map.on('dragstart',()=>followMode=false);
+}
+
+// run boot only when Leaflet (L) is ready
+(function start(){
+  if(window.L && document.getElementById('map')){ bootSjokort(); return; }
+  let tries=0;
+  const iv=setInterval(()=>{
+    if(window.L && document.getElementById('map')){ clearInterval(iv); bootSjokort(); }
+    else if(++tries>100){ clearInterval(iv);
+      document.getElementById('map').innerHTML=
+        '<div style="padding:40px;text-align:center;font-family:sans-serif;color:#0a2540">'+
+        'Kunde inte ladda kartbiblioteket. Kontrollera internetanslutningen och ladda om.</div>'; }
+  },100);
+})();</script>
+</body>
+</html>
