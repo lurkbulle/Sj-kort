@@ -299,9 +299,10 @@ sb.onclick=()=>{ if(map.hasLayer(seamark)){map.removeLayer(seamark);sb.classList
 const db=document.getElementById('depthBtn');
 const legend=document.getElementById('legend');
 let depthWarned=false;
-db.onclick=()=>{ if(map.hasLayer(depth)){map.removeLayer(depth);db.classList.remove('on');legend.classList.remove('show');}
+db.onclick=()=>{ console.log('Djupknapp klickad. Lager aktivt:',map.hasLayer(depth));
+  if(map.hasLayer(depth)){map.removeLayer(depth);db.classList.remove('on');legend.classList.remove('show');}
   else{map.addLayer(depth);db.classList.add('on');legend.classList.add('show');
-    if(!depthWarned){depthWarned=true;toast('Grov djupöversikt – ej för navigation');}} };
+    toast(depthWarned?'Djup på':'Grov djupöversikt – ej för navigation');depthWarned=true;} };
 
 // --- wind ---
 const wb=document.getElementById('windBtn');
